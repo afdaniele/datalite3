@@ -24,3 +24,11 @@ Dataclass fields hinted with this type signals
 Unique = Union[Tuple[T], T]
 
 
+"""
+Dataclass fields hinted with this type signals
+    datalite that the bound column of this
+    field in the table is part of the PRIMARY KEY.
+"""
+Primary = Union[Tuple[T], T]
+
+
