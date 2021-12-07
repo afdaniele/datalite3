@@ -70,15 +70,15 @@ def fetch_from(class_: type, obj_id: int) -> Any:
     return fetch_equals(class_, 'obj_id', obj_id)
 
 
-def _convert_record_to_object(class_: type, record: Tuple[Any], field_names: List[str]) -> Any:
+def _convert_record_to_object(class_: type, record: Tuple[Any]) -> Any:
     """
     Convert a given record fetched from an SQL instance to a Python Object of given class_.
 
     :param class_: Class type to convert the record to.
     :param record: Record to get data from.
-    :param field_names: Field names of the class.
     :return: the created object.
     """
+    fields =
     kwargs = dict(zip(field_names, record[1:]))
     field_types = {key: value.type for key, value in class_.__dataclass_fields__.items()}
     for key in kwargs:

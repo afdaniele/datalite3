@@ -56,10 +56,10 @@ class MassCommit:
     str_: str
 
 
-def getValFromDB(obj_id = 1):
+def getValFromDB(_id = 1):
     with connect('test.db') as db:
         cur = db.cursor()
-        cur.execute(f'SELECT * FROM testclass WHERE obj_id = {obj_id}')
+        cur.execute(f'SELECT * FROM testclass WHERE __id__ = {_id}')
         fields = list(TestClass.__dataclass_fields__.keys())
         fields.sort()
         repr = dict(zip(fields, cur.fetchall()[0][1:]))
@@ -83,7 +83,7 @@ class DatabaseMain(unittest.TestCase):
         self.test_object.create_entry()
         self.test_object.integer_value = 40
         self.test_object.update_entry()
-        from_db = getValFromDB(getattr(self.test_object, 'obj_id'))
+        from_db = getValFromDB(getattr(self.test_object, '__id__'))
         self.assertEqual(self.test_object.integer_value, from_db.integer_value)
 
     def test_delete(self):
@@ -107,7 +107,7 @@ class DatabaseFetchCalls(unittest.TestCase):
         [obj.create_entry() for obj in self.objs]
 
     def testFetchFrom(self):
-        t_obj = fetch_from(FetchClass, self.objs[0].obj_id)
+        t_obj = fetch_from(FetchClass, self.objs[0].__id__)
         self.assertEqual(self.objs[0], t_obj)
 
     def testFetchEquals(self):
@@ -127,7 +127,7 @@ class DatabaseFetchCalls(unittest.TestCase):
         self.assertEqual(tuple(self.objs[1:]), t_objs)
 
     def testFetchRange(self):
-        t_objs = fetch_range(FetchClass, range(self.objs[0].obj_id, self.objs[2].obj_id))
+        t_objs = fetch_range(FetchClass, range(self.objs[0].__id__, self.objs[2].__id__))
         self.assertEqual(tuple(self.objs[0:2]), t_objs)
 
     def tearDown(self) -> None:
@@ -203,7 +203,7 @@ class DatabaseMassInsert(unittest.TestCase):
     def testMassCreate(self):
         with connect('other.db') as con:
             cur = con.cursor()
-            cur.execute(f'CREATE TABLE IF NOT EXISTS MASSCOMMIT (obj_id, str_)')
+            cur.execute(f'CREATE TABLE IF NOT EXISTS MASSCOMMIT (__id__, str_)')
 
         start_tup = fetch_all(MassCommit)
         create_many(self.objs, protect_memory=False)

@@ -8,7 +8,14 @@ from dataclasses import asdict
 import sqlite3 as sql
 
 from .constraints import ConstraintFailedError
-from .commons import _convert_sql_format, _convert_type, _create_table, type_table
+from .commons import _convert_sql_format, _get_key_condition, _create_table, type_table, Key, \
+    _get_primary_key
+
+
+def _get_key(self) -> Key:
+    return tuple([
+        getattr(self, k.name) for k in _get_primary_key(type(self))
+    ])
 
 
 def _create_entry(self) -> None:
@@ -24,11 +31,12 @@ def _create_entry(self) -> None:
         table_name: str = self.__class__.__name__.lower()
         kv_pairs = [item for item in asdict(self).items()]
         kv_pairs.sort(key=lambda item: item[0])  # Sort by the name of the fields.
+        cols = ', '.join(item[0] for item in kv_pairs)
+        values = ', '.join(_convert_sql_format(item[1]) for item in kv_pairs)
         try:
-            cur.execute(f"INSERT INTO {table_name}("
-                        f"{', '.join(item[0] for item in kv_pairs)})"
-                        f" VALUES ({', '.join(_convert_sql_format(item[1]) for item in kv_pairs)});")
-            self.__setattr__("obj_id", cur.lastrowid)
+            cur.execute(f"INSERT INTO {table_name}({cols}) VALUES ({values});")
+            # TODO: fix this
+            self.__setattr__("__id__", cur.lastrowid)
             con.commit()
         except IntegrityError:
             raise ConstraintFailedError("A constraint has failed.")
@@ -45,17 +53,18 @@ def _update_entry(self) -> None:
         table_name: str = self.__class__.__name__.lower()
         kv_pairs = [item for item in asdict(self).items()]
         kv_pairs.sort(key=lambda item: item[0])
-        query = f"UPDATE {table_name} " + \
-                f"SET {', '.join(item[0] + ' = ' + _convert_sql_format(item[1]) for item in kv_pairs)} " + \
-                f"WHERE obj_id = {getattr(self, 'obj_id')};"
+        kv = ', '.join(item[0] + ' = ' + _convert_sql_format(item[1]) for item in kv_pairs)
+        this = _get_key_condition(type(self), _get_key(self))
+        query = f"UPDATE {table_name} SET {kv} WHERE {this};"
         cur.execute(query)
         con.commit()
 
 
-def remove_from(class_: type, obj_id: int):
+def remove_from(class_: type, key: Key):
+    this = _get_key_condition(class_, key)
     with sql.connect(getattr(class_, "db_path")) as con:
         cur: sql.Cursor = con.cursor()
-        cur.execute(f"DELETE FROM {class_.__name__.lower()} WHERE obj_id = {obj_id}")
+        cur.execute(f"DELETE FROM {class_.__name__.lower()} WHERE {this}")
         con.commit()
 
 
@@ -65,7 +74,7 @@ def _remove_entry(self) -> None:
     :param self: self instance.
     :return: None.
     """
-    remove_from(self.__class__, getattr(self, 'obj_id'))
+    remove_from(type(self), _get_key(self))
 
 
 def datalite(db_path: str, type_overload: Optional[Dict[Optional[type], str]] = None) -> Callable:
@@ -83,6 +92,7 @@ def datalite(db_path: str, type_overload: Optional[Dict[Optional[type], str]] = 
         with sql.connect(db_path) as con:
             cur: sql.Cursor = con.cursor()
             _create_table(dataclass_, cur, types_table)
+        primary_key = _get_primary_key(dataclass_, types_table)
         setattr(dataclass_, 'db_path', db_path)  # We add the path of the database to class itself.
         setattr(dataclass_, 'types_table', types_table)  # We add the type table for migration.
         dataclass_.create_entry = _create_entry
