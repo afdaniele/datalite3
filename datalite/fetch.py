@@ -1,6 +1,7 @@
 import sqlite3 as sql
 from typing import List, Tuple, Any
-from .commons import _convert_sql_format, _get_table_cols, _get_fields, connect, \
+
+from .commons import _convert_sql_format, _get_fields, connect, \
     _assert_is_decorated, Key, _get_key_condition, _validate_key, SQLField, _get_primary_key, \
     DecoratedClass, _get_table_name
 
@@ -122,7 +123,8 @@ def fetch_if(class_: type, condition: str, page: int = 0, element_count: int = 1
     return tuple(_convert_record_to_object(class_, record) for record in records)
 
 
-def fetch_where(class_: type, field: str, value: Any, page: int = 0, element_count: int = 10) -> tuple:
+def fetch_where(class_: type, field: str, value: Any, page: int = 0,
+                element_count: int = 10) -> tuple:
     """
     Fetch all class_ type variables from the bound db,
     provided that the field of the records fit the
@@ -170,5 +172,4 @@ def fetch_all(class_: type, page: int = 0, element_count: int = 10) -> tuple:
         except sql.OperationalError:
             raise TypeError(f"No record of type {table_name}")
         records = cur.fetchall()
-        field_names: List[str] = _get_table_cols(cur, table_name)
     return tuple(_convert_record_to_object(class_, record) for record in records)

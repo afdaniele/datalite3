@@ -3,12 +3,14 @@ This module includes functions to insert multiple records
 to a bound database at one time, with one time open and closing
 of the database file.
 """
-from typing import TypeVar, Union, List, Tuple
-from dataclasses import asdict
-from warnings import warn
-from .constraints import ConstraintFailedError
-from .commons import _convert_sql_format, _create_table, _get_table_name
 import sqlite3 as sql
+from typing import TypeVar, Union, List, Tuple
+from warnings import warn
+
+from dataclasses import asdict
+
+from .commons import _convert_sql_format, _create_table, _get_table_name
+from .constraints import ConstraintFailedError
 
 T = TypeVar('T')
 
@@ -31,7 +33,8 @@ def _check_homogeneity(objects: Union[List[T], Tuple[T]]) -> None:
     :return: If all of the members of the same type.
     """
     class_ = objects[0].__class__
-    if not all([isinstance(obj, class_) or isinstance(objects[0], obj.__class__)  for obj in objects]):
+    if not all(
+            [isinstance(obj, class_) or isinstance(objects[0], obj.__class__) for obj in objects]):
         raise HeterogeneousCollectionError("Tuple or List is not homogeneous.")
 
 
@@ -52,7 +55,8 @@ def _toggle_memory_protection(cur: sql.Cursor, protect_memory: bool) -> None:
 
 
 # TODO: db_name looks wrong here
-def _mass_insert(objects: Union[List[T], Tuple[T]], db_name: str, protect_memory: bool = True) -> None:
+def _mass_insert(objects: Union[List[T], Tuple[T]], db_name: str,
+                 protect_memory: bool = True) -> None:
     """
     Insert multiple records into an SQLite3 database.
 
@@ -81,7 +85,8 @@ def _mass_insert(objects: Union[List[T], Tuple[T]], db_name: str, protect_memory
             index_tuple = cur.fetchone()
             if index_tuple:
                 first_index = index_tuple[0]
-            cur.executescript("BEGIN TRANSACTION;\n" + '\n'.join(sql_queries) + '\nEND TRANSACTION;')
+            cur.executescript(
+                "BEGIN TRANSACTION;\n" + '\n'.join(sql_queries) + '\nEND TRANSACTION;')
         except sql.IntegrityError:
             raise ConstraintFailedError
 
@@ -103,7 +108,8 @@ def create_many(objects: Union[List[T], Tuple[T]], protect_memory: bool = True) 
         raise ValueError("Collection is empty.")
 
 
-def copy_many(objects: Union[List[T], Tuple[T]], db_name: str, protect_memory: bool = True) -> None:
+def copy_many(objects: Union[List[T], Tuple[T]], db_name: str,
+              protect_memory: bool = True) -> None:
     """
     Copy many records to another database, from
     their original database to new database, do

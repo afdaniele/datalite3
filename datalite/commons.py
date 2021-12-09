@@ -4,34 +4,16 @@ from contextlib import contextmanager
 from enum import Enum
 from inspect import isclass
 from sqlite3 import Connection
-from typing import Any, Dict, List, Tuple, Optional, Union
+from typing import Any, Dict, List, Tuple, Optional, Union, Type
 
 import dataclasses
 
 from .constraints import Unique, Primary
 
-
 PythonType = type
 PrimitiveType = Union[type(None), int, float, str, bytes]
 Key = Union[PrimitiveType, Tuple[PrimitiveType]]
-
-
-@dataclasses.dataclass
-class DecoratedClass:
-    db: str
-    connection: str
-    types_table: str
-    table_name: str
-    __datalite_decorated__: str
-
-    def create_entry(self) -> None:
-        pass
-
-    def update_entry(self) -> None:
-        pass
-
-    def remove_entry(self) -> None:
-        pass
+DecoratedClass = Type[dataclasses.dataclass]
 
 
 class SQLType(Enum):
@@ -148,22 +130,24 @@ def _get_default(default_object: object, type_overload: TypesTable) -> str:
     return ""
 
 
-def _get_table_name(obj_or_class: Union[DecoratedClass, object]) -> str:
-    class_: DecoratedClass = obj_or_class if isclass(obj_or_class) else type(obj_or_class)
+def _get_table_name(obj_or_class: Union[type, object]) -> str:
+    class_: type = obj_or_class if isclass(obj_or_class) else type(obj_or_class)
     _assert_is_decorated(class_)
+    class_: DecoratedClass = class_
     return class_.table_name
 
 
 # noinspection PyDefaultArgument
-def _get_primary_key(class_: DecoratedClass,
+def _get_primary_key(class_: type,
                      type_overload: TypesTable = type_table) -> List[SQLField]:
+    class_: DecoratedClass = class_
     fields: List[dataclasses.Field] = list(dataclasses.fields(class_))
     fields = list(filter(lambda f: f.type in primary_types, fields))
     typed_fields = list(map(lambda f: SQLField(f.name, f.type, type_overload[f.type]), fields))
     return typed_fields or [SQLField("__id__", int, type_overload[int])]
 
 
-def _get_key_condition(class_: DecoratedClass, key: Key) -> str:
+def _get_key_condition(class_: type, key: Key) -> str:
     key = _validate_key(class_, key)
     key_value = [
         f"{k.name}={_convert_sql_format(v)}"
@@ -173,7 +157,7 @@ def _get_key_condition(class_: DecoratedClass, key: Key) -> str:
 
 
 def _get_instance_key_condition(self) -> str:
-    class_: DecoratedClass = type(self)
+    class_: type = type(self)
     _assert_is_decorated(class_)
     key_fields = _get_primary_key(class_)
     key_values = tuple([getattr(self, f.name) for f in key_fields])
@@ -181,8 +165,10 @@ def _get_instance_key_condition(self) -> str:
 
 
 # noinspection PyDefaultArgument
-def _get_fields(class_: DecoratedClass,
+def _get_fields(class_: type,
                 type_overload: TypesTable = type_table) -> List[SQLField]:
+    _assert_is_decorated(class_)
+    class_: DecoratedClass = class_
     fields: List[dataclasses.Field] = list(dataclasses.fields(class_))
     fields: List[SQLField] = [
         SQLField.from_dataclass_field(f, type_overload) for f in fields
@@ -191,7 +177,10 @@ def _get_fields(class_: DecoratedClass,
 
 
 @contextmanager
-def connect(class_: DecoratedClass):
+def connect(class_: type):
+    _assert_is_decorated(class_)
+    class_: DecoratedClass = class_
+
     # TODO: use a lock here to modify the class
     close: bool = False
     if class_.connection is None and isinstance(class_.db, str):
@@ -206,7 +195,7 @@ def connect(class_: DecoratedClass):
             class_.connection = None
 
 
-def _assert_is_decorated(class_: Union[type, DecoratedClass]):
+def _assert_is_decorated(class_: Union[type, type]):
     try:
         getattr(class_, '__datalite_decorated__')
     except AttributeError:
@@ -214,7 +203,7 @@ def _assert_is_decorated(class_: Union[type, DecoratedClass]):
 
 
 # noinspection PyDefaultArgument
-def _validate_key(class_: DecoratedClass,
+def _validate_key(class_: type,
                   key: Key,
                   type_overload: TypesTable = type_table) -> Key:
     # get description of primary key for the class
@@ -241,7 +230,7 @@ def _validate_key(class_: DecoratedClass,
 
 
 # noinspection PyDefaultArgument
-def _create_table(class_: DecoratedClass,
+def _create_table(class_: type,
                   cursor: sql.Cursor,
                   type_overload: TypesTable = type_table) -> None:
     """
@@ -252,6 +241,8 @@ def _create_table(class_: DecoratedClass,
     with a custom table, this is that custom table.
     :return: None.
     """
+    _assert_is_decorated(class_)
+    class_: DecoratedClass = class_
     # table name
     table_name: str = _get_table_name(class_)
     # get fields
