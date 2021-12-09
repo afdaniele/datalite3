@@ -4,16 +4,34 @@ from contextlib import contextmanager
 from enum import Enum
 from inspect import isclass
 from sqlite3 import Connection
-from typing import Any, Dict, List, Type, Tuple, Optional, Union
+from typing import Any, Dict, List, Tuple, Optional, Union
 
 import dataclasses
 
 from .constraints import Unique, Primary
 
-DecoratedClass = Type[dataclasses.dataclass]
+
 PythonType = type
 PrimitiveType = Union[type(None), int, float, str, bytes]
 Key = Union[PrimitiveType, Tuple[PrimitiveType]]
+
+
+@dataclasses.dataclass
+class DecoratedClass:
+    db: str
+    connection: str
+    types_table: str
+    table_name: str
+    __datalite_decorated__: str
+
+    def create_entry(self) -> None:
+        pass
+
+    def update_entry(self) -> None:
+        pass
+
+    def remove_entry(self) -> None:
+        pass
 
 
 class SQLType(Enum):
@@ -56,12 +74,14 @@ primitive_types: TypesTable = {
 }
 
 type_table: TypesTable = copy.copy(primitive_types)
-type_table.update({
-    Unique[key]: f"{value} NOT NULL UNIQUE" for key, value in type_table.items()
-})
-type_table.update({
-    Primary[key]: value for key, value in type_table.items()
-})
+unique_types: TypesTable = {
+    Unique[key]: f"{value} NOT NULL UNIQUE" for key, value in primitive_types.items()
+}
+primary_types: TypesTable = {
+    Primary[key]: f"{value} NOT NULL" for key, value in primitive_types.items()
+}
+type_table.update(unique_types)
+type_table.update(primary_types)
 
 
 def _convert_type(type_: PythonType, type_overload: TypesTable) -> SQLType:
@@ -129,9 +149,8 @@ def _get_default(default_object: object, type_overload: TypesTable) -> str:
 
 
 def _get_table_name(obj_or_class: Union[DecoratedClass, object]) -> str:
-    class_: type = obj_or_class if isclass(obj_or_class) else type(obj_or_class)
+    class_: DecoratedClass = obj_or_class if isclass(obj_or_class) else type(obj_or_class)
     _assert_is_decorated(class_)
-    class_: DecoratedClass = class_
     return class_.table_name
 
 
@@ -139,7 +158,7 @@ def _get_table_name(obj_or_class: Union[DecoratedClass, object]) -> str:
 def _get_primary_key(class_: DecoratedClass,
                      type_overload: TypesTable = type_table) -> List[SQLField]:
     fields: List[dataclasses.Field] = list(dataclasses.fields(class_))
-    fields = list(filter(lambda f: f.type.__class__ is Primary, fields))
+    fields = list(filter(lambda f: f.type in primary_types, fields))
     typed_fields = list(map(lambda f: SQLField(f.name, f.type, type_overload[f.type]), fields))
     return typed_fields or [SQLField("__id__", int, type_overload[int])]
 
@@ -154,7 +173,7 @@ def _get_key_condition(class_: DecoratedClass, key: Key) -> str:
 
 
 def _get_instance_key_condition(self) -> str:
-    class_: type = type(self)
+    class_: DecoratedClass = type(self)
     _assert_is_decorated(class_)
     key_fields = _get_primary_key(class_)
     key_values = tuple([getattr(self, f.name) for f in key_fields])
@@ -168,15 +187,6 @@ def _get_fields(class_: DecoratedClass,
     fields: List[SQLField] = [
         SQLField.from_dataclass_field(f, type_overload) for f in fields
     ]
-
-    # TODO: remove
-    # # add primary key fields
-    # primary_fields: List[SQLField] = _get_primary_key(class_, type_overload)
-    # default_key = len(primary_fields) == 1 and primary_fields[0].name == "__id__"
-    # if default_key:
-    #     # default key
-    #     fields.append(SQLField("__id__", int, SQLType.INTEGER))
-
     return fields
 
 
@@ -196,26 +206,7 @@ def connect(class_: DecoratedClass):
             class_.connection = None
 
 
-# TODO: remove
-# def _connect(class_: DecoratedClass) -> Connection:
-#     # TODO: use a lock here to modify the class
-#     if isinstance(class_.connection, Connection):
-#         return class_.connection
-#     elif isinstance(class_.db, str):
-#         class_.connection = Connection(class_.db)
-#         return class_.connection
-#
-#
-# def _disconnect(class_: DecoratedClass) -> bool:
-#     # TODO: use a lock here to modify the class
-#     if isinstance(class_.db, str) and isinstance(class_.connection, Connection):
-#         class_.connection.close()
-#         class_.connection = None
-#         return True
-#     return False
-
-
-def _assert_is_decorated(class_: type):
+def _assert_is_decorated(class_: Union[type, DecoratedClass]):
     try:
         getattr(class_, '__datalite_decorated__')
     except AttributeError:
