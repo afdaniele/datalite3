@@ -3,11 +3,12 @@ Migrations module deals with migrating data when the object
 definitions change. This functions deal with Schema Migrations.
 """
 import sqlite3 as sql
-from sqlite3 import Connection
 from typing import Dict, Tuple, List
 
 from .commons import _create_table, _get_table_cols, DecoratedClass, _assert_is_decorated, \
-    _get_table_name, connect, _get_fields
+    _get_table_name, connect, _get_fields, PrimitiveType
+
+_MISSING_VALUE = object()
 
 
 def _get_class_table(class_: DecoratedClass) -> Tuple[str, List[str]]:
@@ -32,21 +33,6 @@ def _get_class_table(class_: DecoratedClass) -> Tuple[str, List[str]]:
     return table_name, columns
 
 
-# def _get_table_column_names(database_name: str, table_name: str) -> Tuple[str]:
-#     """
-#     Get the column names of table.
-#
-#     :param database_name: Name of the database the table
-#         resides in.
-#     :param table_name: Name of the table.
-#     :return: A tuple holding the column names of the table.
-#     """
-#     with sql.connect(database_name) as con:
-#         cur: sql.Cursor = con.cursor()
-#         cols: List[str] = _get_table_cols(cur, table_name)
-#     return tuple(cols)
-
-
 def _copy_records(class_: DecoratedClass, table_name: str):
     """
     Copy all records from a table.
@@ -60,7 +46,6 @@ def _copy_records(class_: DecoratedClass, table_name: str):
         cur.execute(f'SELECT * FROM {table_name};')
         values = cur.fetchall()
         keys = _get_table_cols(cur, table_name)
-    keys.insert(0, 'obj_id')
     records = (dict(zip(keys, value)) for value in values)
     return records
 
@@ -80,7 +65,7 @@ def _drop_table(class_: DecoratedClass, table_name: str) -> None:
 
 
 def _modify_records(data, col_to_del: Tuple[str], col_to_add: Tuple[str],
-                    flow: Dict[str, str]) -> Tuple[Dict[str, str]]:
+                    flow: Dict[str, str]) -> List[Dict[str, PrimitiveType]]:
     """
     Modify the asdict records in accordance
         with schema migration rules provided.
@@ -106,7 +91,7 @@ def _modify_records(data, col_to_del: Tuple[str], col_to_add: Tuple[str],
                 record_mod[key] = record[key]
         for key_to_add in col_to_add:
             if key_to_add not in record_mod:
-                record_mod[key_to_add] = None
+                record_mod[key_to_add] = _MISSING_VALUE
         records.append(record_mod)
     return records
 
@@ -130,8 +115,7 @@ def _migrate_records(class_: type, data,
         con.commit()
     new_records = _modify_records(data, col_to_del, col_to_add, flow)
     for record in new_records:
-        del record['obj_id']
-        keys_to_delete = [key for key in record if record[key] is None]
+        keys_to_delete = [k for k in record if record[k] is _MISSING_VALUE]
         for key in keys_to_delete:
             del record[key]
         class_(**record).create_entry()
@@ -157,12 +141,5 @@ def basic_migrate(class_: DecoratedClass, column_transfer: dict = None) -> None:
     columns_delete: Tuple[str] = tuple(col for col in column_names if col not in field_names)
     columns_add: Tuple[str] = tuple(col for col in field_names if col not in column_names)
     records = _copy_records(class_, table_name)
-
-    print(field_names)
-    print(table_name, column_names)
-    print(columns_delete)
-    print(columns_add)
-    print(records)
-
     _drop_table(class_, table_name)
     _migrate_records(class_, records, columns_delete, columns_add, column_transfer)

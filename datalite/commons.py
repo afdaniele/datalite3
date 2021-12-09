@@ -1,12 +1,12 @@
 import copy
-
-import dataclasses
 import sqlite3 as sql
 from contextlib import contextmanager
 from enum import Enum
 from inspect import isclass
 from sqlite3 import Connection
 from typing import Any, Dict, List, Type, Tuple, Optional, Union
+
+import dataclasses
 
 from .constraints import Unique, Primary
 
@@ -110,7 +110,7 @@ def _get_table_cols(cur: sql.Cursor, table_name: str) -> List[str]:
     :return: the information about columns.
     """
     cur.execute(f"PRAGMA table_info({table_name});")
-    return [row_info[1] for row_info in cur.fetchall()][1:]
+    return [row_info[1] for row_info in cur.fetchall()]
 
 
 def _get_default(default_object: object, type_overload: TypesTable) -> str:
