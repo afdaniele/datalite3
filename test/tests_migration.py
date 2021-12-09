@@ -12,8 +12,6 @@ unittest.util._MAX_LENGTH = 2000
 
 db: Connection = Connection(":memory:")
 
-# db: str = "test.db"
-
 
 @datalite(db)
 @dataclass
