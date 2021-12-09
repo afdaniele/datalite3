@@ -2,7 +2,7 @@ import sqlite3 as sql
 from typing import List, Tuple, Any
 from .commons import _convert_sql_format, _get_table_cols, _get_fields, connect, \
     _assert_is_decorated, Key, _get_key_condition, _validate_key, SQLField, _get_primary_key, \
-    DecoratedClass
+    DecoratedClass, _get_table_name
 
 
 def _insert_pagination(query: str, class_: DecoratedClass, page: int, element_count: int) -> str:
@@ -34,7 +34,7 @@ def is_fetchable(class_: type, key: Key) -> bool:
     _assert_is_decorated(class_)
     key = _validate_key(class_, key)
     condition: str = _get_key_condition(class_, key)
-    table_name: str = class_.__name__.lower()
+    table_name: str = _get_table_name(class_)
     with connect(class_) as con:
         cur: sql.Cursor = con.cursor()
         try:
@@ -55,7 +55,7 @@ def fetch_equals(class_: type, field: str, value: Any, ) -> Any:
     """
     _assert_is_decorated(class_)
     field_names = list(map(lambda f: f.name, _get_fields(class_)))
-    table_name = class_.__name__.lower()
+    table_name = _get_table_name(class_)
     with connect(class_) as con:
         cur: sql.Cursor = con.cursor()
         cur.execute(f"SELECT * FROM {table_name} WHERE {field} = {_convert_sql_format(value)};")
@@ -113,7 +113,7 @@ def fetch_if(class_: type, condition: str, page: int = 0, element_count: int = 1
         of given type class_.
     """
     _assert_is_decorated(class_)
-    table_name = class_.__name__.lower()
+    table_name = _get_table_name(class_)
     with connect(class_) as con:
         cur: sql.Cursor = con.cursor()
         query: str = f"SELECT * FROM {table_name} WHERE {condition}"
@@ -161,13 +161,14 @@ def fetch_all(class_: type, page: int = 0, element_count: int = 10) -> tuple:
         the bound database as a tuple.
     """
     _assert_is_decorated(class_)
+    table_name: str = _get_table_name(class_)
     with connect(class_) as con:
         cur: sql.Cursor = con.cursor()
-        query: str = f"SELECT * FROM {class_.__name__.lower()}"
+        query: str = f"SELECT * FROM {table_name}"
         try:
             cur.execute(_insert_pagination(query, class_, page, element_count))
         except sql.OperationalError:
-            raise TypeError(f"No record of type {class_.__name__.lower()}")
+            raise TypeError(f"No record of type {table_name}")
         records = cur.fetchall()
-        field_names: List[str] = _get_table_cols(cur, class_.__name__.lower())
+        field_names: List[str] = _get_table_cols(cur, table_name)
     return tuple(_convert_record_to_object(class_, record) for record in records)

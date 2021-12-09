@@ -9,7 +9,7 @@ from typing import Optional, Callable, List, Union
 
 from .commons import _convert_sql_format, _get_key_condition, _create_table, type_table, Key, \
     _get_primary_key, SQLField, TypesTable, DecoratedClass, _get_fields, \
-    connect, _get_table_name
+    connect, _get_table_name, _assert_is_decorated
 from .constraints import ConstraintFailedError
 
 
@@ -60,7 +60,7 @@ def _update_entry(self) -> None:
 
     with connect(class_) as conn:
         cur: sql.Cursor = conn.cursor()
-        table_name: str = self.__class__.__name__.lower()
+        table_name: str = _get_table_name(self)
         kv_pairs = [item for item in asdict(self).items()]
         kv_pairs.sort(key=lambda item: item[0])
         kv = ', '.join(item[0] + ' = ' + _convert_sql_format(item[1]) for item in kv_pairs)
@@ -71,11 +71,13 @@ def _update_entry(self) -> None:
 
 
 def remove_from(class_: type, key: Key):
+    _assert_is_decorated(class_)
     this = _get_key_condition(class_, key)
+    table_name: str = _get_table_name(class_)
     # connect
     with connect(class_) as conn:
         cur: sql.Cursor = conn.cursor()
-        cur.execute(f"DELETE FROM {class_.__name__.lower()} WHERE {this}")
+        cur.execute(f"DELETE FROM {table_name} WHERE {this}")
         conn.commit()
 
 
@@ -88,11 +90,12 @@ def _remove_entry(self) -> None:
     remove_from(type(self), _get_key(self))
 
 
-def datalite(db: Union[str, Connection], type_overload: Optional[TypesTable] = None) -> Callable:
+def datalite(db: Union[str, Connection], table_name: Optional[str] = None, *, type_overload: Optional[TypesTable] = None) -> Callable:
     """Bind a dataclass to a sqlite3 database. This adds new methods to the class, such as
     `create_entry()`, `remove_entry()` and `update_entry()`.
 
     :param db: Path of the database to be binded.
+    :param table_name: Optional name for the table. The name of the class will be used by default.
     :param type_overload: Type overload dictionary.
     :return: The new dataclass.
     """
@@ -110,18 +113,22 @@ def datalite(db: Union[str, Connection], type_overload: Optional[TypesTable] = N
                 fields=[('__id__', int, None)],
                 bases=(dataclass_,)
             )
+        # make table name
+        table_name_: str = table_name or dataclass_.__name__.lower()
         # add the path of the database to the class
         setattr(dataclass_, 'db', None if isinstance(db, Connection) else db)
         # add a connection object to the class
         setattr(dataclass_, 'connection', None if isinstance(db, str) else db)
         # add the type table for migration.
         setattr(dataclass_, 'types_table', types_table)
+        # add table name
+        setattr(dataclass_, 'table_name', table_name_)
         # mark class as decorated
         setattr(dataclass_, '__datalite_decorated__', True)
         # create table
         with connect(dataclass_) as conn:
             cur: sql.Cursor = conn.cursor()
-            _create_table(dataclass_, cur, types_table)
+            _create_table(dataclass_, cur, type_overload=types_table)
         # add methods to the class
         dataclass_.create_entry = _create_entry
         dataclass_.remove_entry = _remove_entry

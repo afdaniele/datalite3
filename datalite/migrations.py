@@ -126,7 +126,7 @@ def _migrate_records(class_: type, data,
     """
     with connect(class_) as con:
         cur: sql.Cursor = con.cursor()
-        _create_table(class_, cur, getattr(class_, 'types_table'))
+        _create_table(class_, cur, type_overload=getattr(class_, 'types_table'))
         con.commit()
     new_records = _modify_records(data, col_to_del, col_to_add, flow)
     for record in new_records:

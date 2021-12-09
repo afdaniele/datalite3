@@ -7,7 +7,7 @@ from typing import TypeVar, Union, List, Tuple
 from dataclasses import asdict
 from warnings import warn
 from .constraints import ConstraintFailedError
-from .commons import _convert_sql_format, _create_table
+from .commons import _convert_sql_format, _create_table, _get_table_name
 import sqlite3 as sql
 
 T = TypeVar('T')
@@ -51,6 +51,7 @@ def _toggle_memory_protection(cur: sql.Cursor, protect_memory: bool) -> None:
         cur.execute("PRAGMA journal_mode = MEMORY")
 
 
+# TODO: db_name looks wrong here
 def _mass_insert(objects: Union[List[T], Tuple[T]], db_name: str, protect_memory: bool = True) -> None:
     """
     Insert multiple records into an SQLite3 database.
@@ -64,7 +65,7 @@ def _mass_insert(objects: Union[List[T], Tuple[T]], db_name: str, protect_memory
     _check_homogeneity(objects)
     sql_queries = []
     first_index: int = 0
-    table_name = objects[0].__class__.__name__.lower()
+    table_name = _get_table_name(objects[0])
 
     for i, obj in enumerate(objects):
         kv_pairs = asdict(obj).items()

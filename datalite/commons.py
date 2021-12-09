@@ -131,7 +131,8 @@ def _get_default(default_object: object, type_overload: TypesTable) -> str:
 def _get_table_name(obj_or_class: Union[DecoratedClass, object]) -> str:
     class_: type = obj_or_class if isclass(obj_or_class) else type(obj_or_class)
     _assert_is_decorated(class_)
-    return class_.__name__.lower()
+    class_: DecoratedClass = class_
+    return class_.table_name
 
 
 # noinspection PyDefaultArgument
@@ -260,6 +261,9 @@ def _create_table(class_: DecoratedClass,
     with a custom table, this is that custom table.
     :return: None.
     """
+    # table name
+    table_name: str = _get_table_name(class_)
+    # get fields
     fields: List[dataclasses.Field] = list(dataclasses.fields(class_))
     # declared fields
     fields: Dict[str, str] = {
@@ -278,7 +282,7 @@ def _create_table(class_: DecoratedClass,
     sql_primary_fields: str = ', '.join(primary_fields)
     if not default_key:
         sql_fields = sql_fields + f", PRIMARY KEY ({sql_primary_fields})"
-    sql_query = f"CREATE TABLE IF NOT EXISTS {class_.__name__.lower()} ({sql_fields});"
+    sql_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({sql_fields});"
     # TODO: remove
     # print(sql_query)
 
