@@ -2,14 +2,18 @@ import copy
 
 import dataclasses
 import sqlite3 as sql
+from contextlib import contextmanager
 from enum import Enum
-from typing import Any, Optional, Dict, List, Type, Tuple
+from inspect import isclass
+from sqlite3 import Connection
+from typing import Any, Dict, List, Type, Tuple, Optional, Union
 
 from .constraints import Unique, Primary
 
 DecoratedClass = Type[dataclasses.dataclass]
-PythonType = Optional[type]
-Key = Tuple[Any]
+PythonType = type
+PrimitiveType = Union[type(None), int, float, str, bytes]
+Key = Union[PrimitiveType, Tuple[PrimitiveType]]
 
 
 class SQLType(Enum):
@@ -31,15 +35,19 @@ class SQLField:
     attributes: str = ""
 
     @staticmethod
-    def from_dataclass_field(f: dataclasses.Field) -> 'SQLField':
+    def from_dataclass_field(f: dataclasses.Field,
+                             type_overload: Optional['TypesTable'] = None) -> 'SQLField':
+        table = type_overload or type_table
         return SQLField(
             f.name,
             f.type,
-            type_table[f.type]
+            table[f.type]
         )
 
 
-primitive_types: Dict[PythonType, SQLType] = {
+TypesTable = Dict[PythonType, SQLType]
+
+primitive_types: TypesTable = {
     type(None): SQLType.NULL,
     int: SQLType.INTEGER,
     float: SQLType.REAL,
@@ -47,7 +55,7 @@ primitive_types: Dict[PythonType, SQLType] = {
     bytes: SQLType.BLOB
 }
 
-type_table: Dict[PythonType, SQLType] = copy.copy(primitive_types)
+type_table: TypesTable = copy.copy(primitive_types)
 type_table.update({
     Unique[key]: f"{value} NOT NULL UNIQUE" for key, value in type_table.items()
 })
@@ -56,7 +64,7 @@ type_table.update({
 })
 
 
-def _convert_type(type_: PythonType, type_overload: Dict[PythonType, SQLType]) -> SQLType:
+def _convert_type(type_: PythonType, type_overload: TypesTable) -> SQLType:
     """
     Given a Python type, return the str name of its
     SQLlite equivalent.
@@ -105,7 +113,7 @@ def _get_table_cols(cur: sql.Cursor, table_name: str) -> List[str]:
     return [row_info[1] for row_info in cur.fetchall()][1:]
 
 
-def _get_default(default_object: object, type_overload: Dict[PythonType, SQLType]) -> str:
+def _get_default(default_object: object, type_overload: TypesTable) -> str:
     """
     Check if the field's default object is filled,
     if filled return the string to be put in the,
@@ -120,17 +128,23 @@ def _get_default(default_object: object, type_overload: Dict[PythonType, SQLType
     return ""
 
 
+def _get_table_name(obj_or_class: Union[DecoratedClass, object]) -> str:
+    class_: type = obj_or_class if isclass(obj_or_class) else type(obj_or_class)
+    _assert_is_decorated(class_)
+    return class_.__name__.lower()
+
+
 # noinspection PyDefaultArgument
 def _get_primary_key(class_: DecoratedClass,
-                     type_overload: Dict[PythonType, SQLType] = type_table) -> List[SQLField]:
+                     type_overload: TypesTable = type_table) -> List[SQLField]:
     fields: List[dataclasses.Field] = list(dataclasses.fields(class_))
     fields = list(filter(lambda f: f.type.__class__ is Primary, fields))
     typed_fields = list(map(lambda f: SQLField(f.name, f.type, type_overload[f.type]), fields))
     return typed_fields or [SQLField("__id__", int, type_overload[int])]
 
 
-def _get_key_condition(class_: DecoratedClass, key: Key):
-    _validate_key(class_, key)
+def _get_key_condition(class_: DecoratedClass, key: Key) -> str:
+    key = _validate_key(class_, key)
     key_value = [
         f"{k.name}={_convert_sql_format(v)}"
         for k, v in zip(_get_primary_key(class_, type_table), key)
@@ -138,31 +152,89 @@ def _get_key_condition(class_: DecoratedClass, key: Key):
     return " AND ".join(key_value)
 
 
+def _get_instance_key_condition(self) -> str:
+    class_: type = type(self)
+    _assert_is_decorated(class_)
+    key_fields = _get_primary_key(class_)
+    key_values = tuple([getattr(self, f.name) for f in key_fields])
+    return _get_key_condition(class_, key_values)
+
+
 # noinspection PyDefaultArgument
 def _get_fields(class_: DecoratedClass,
-                type_overload: Dict[PythonType, SQLType] = type_table) -> List[SQLField]:
+                type_overload: TypesTable = type_table) -> List[SQLField]:
     fields: List[dataclasses.Field] = list(dataclasses.fields(class_))
     fields: List[SQLField] = [
-        SQLField.from_dataclass_field(f) for f in fields
+        SQLField.from_dataclass_field(f, type_overload) for f in fields
     ]
-    # add primary key fields
-    primary_fields: List[SQLField] = _get_primary_key(class_, type_overload)
-    default_key = len(primary_fields) == 1 and primary_fields[0].name == "__id__"
-    if default_key:
-        # default key
-        fields.append(SQLField("__id__", int, SQLType.INTEGER))
+
+    # TODO: remove
+    # # add primary key fields
+    # primary_fields: List[SQLField] = _get_primary_key(class_, type_overload)
+    # default_key = len(primary_fields) == 1 and primary_fields[0].name == "__id__"
+    # if default_key:
+    #     # default key
+    #     fields.append(SQLField("__id__", int, SQLType.INTEGER))
+
     return fields
+
+
+@contextmanager
+def connect(class_: DecoratedClass):
+    # TODO: use a lock here to modify the class
+    close: bool = False
+    if class_.connection is None and isinstance(class_.db, str):
+        class_.connection = Connection(class_.db)
+        close = True
+
+    try:
+        yield class_.connection
+    finally:
+        if close:
+            class_.connection.close()
+            class_.connection = None
+
+
+# TODO: remove
+# def _connect(class_: DecoratedClass) -> Connection:
+#     # TODO: use a lock here to modify the class
+#     if isinstance(class_.connection, Connection):
+#         return class_.connection
+#     elif isinstance(class_.db, str):
+#         class_.connection = Connection(class_.db)
+#         return class_.connection
+#
+#
+# def _disconnect(class_: DecoratedClass) -> bool:
+#     # TODO: use a lock here to modify the class
+#     if isinstance(class_.db, str) and isinstance(class_.connection, Connection):
+#         class_.connection.close()
+#         class_.connection = None
+#         return True
+#     return False
+
+
+def _assert_is_decorated(class_: type):
+    try:
+        getattr(class_, '__datalite_decorated__')
+    except AttributeError:
+        raise TypeError(f"Given class <{class_.__name__}> is not decorated with datalite.")
 
 
 # noinspection PyDefaultArgument
 def _validate_key(class_: DecoratedClass,
                   key: Key,
-                  type_overload: Dict[PythonType, SQLType] = type_table):
+                  type_overload: TypesTable = type_table) -> Key:
+    # get description of primary key for the class
+    primary_key = _get_primary_key(class_, type_overload)
     # make sure the key is a tuple
     if not isinstance(key, tuple):
-        raise ValueError(f"Key must be of type <tuple>, received <{type(key).__name__}> instead.")
+        if len(primary_key) == 1:
+            key = (key,)
+        else:
+            raise ValueError(f"Key must be of type <tuple>, "
+                             f"received <{type(key).__name__}> instead.")
     # make sure the key size is correct
-    primary_key = _get_primary_key(class_, type_overload)
     if len(key) != len(primary_key):
         raise ValueError(f"Class <{class_.__name__}> has a key {len(primary_key)} fields long, "
                          f"a key of {len(key)} fields was given instead.")
@@ -172,12 +244,14 @@ def _validate_key(class_: DecoratedClass,
         if type(value) not in primitive_types:
             raise ValueError(f"Key must contain only primitive types. Value of type "
                              f"<{type(value).__name__}> found in position {i}.")
+    # ---
+    return key
 
 
 # noinspection PyDefaultArgument
 def _create_table(class_: DecoratedClass,
                   cursor: sql.Cursor,
-                  type_overload: Dict[PythonType, SQLType] = type_table) -> None:
+                  type_overload: TypesTable = type_table) -> None:
     """
     Create the table for a specific dataclass given
     :param class_: A dataclass.
@@ -206,5 +280,6 @@ def _create_table(class_: DecoratedClass,
         sql_fields = sql_fields + f", PRIMARY KEY ({sql_primary_fields})"
     sql_query = f"CREATE TABLE IF NOT EXISTS {class_.__name__.lower()} ({sql_fields});"
     # TODO: remove
-    print(sql_query)
+    # print(sql_query)
+
     cursor.execute(sql_query)

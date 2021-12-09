@@ -97,7 +97,7 @@ def create_many(objects: Union[List[T], Tuple[T]], protect_memory: bool = True) 
     :return: None.
     """
     if objects:
-        _mass_insert(objects, getattr(objects[0], "db_path"), protect_memory)
+        _mass_insert(objects, getattr(objects[0], "db"), protect_memory)
     else:
         raise ValueError("Collection is empty.")
 

@@ -2,14 +2,15 @@
 Defines the Datalite decorator that can be used to convert a dataclass to
 a class bound to a sqlite3 database.
 """
-from sqlite3.dbapi2 import IntegrityError
-from typing import Dict, Optional, Callable
-from dataclasses import asdict
 import sqlite3 as sql
+from dataclasses import asdict, make_dataclass
+from sqlite3 import IntegrityError, Connection
+from typing import Optional, Callable, List, Union
 
-from .constraints import ConstraintFailedError
 from .commons import _convert_sql_format, _get_key_condition, _create_table, type_table, Key, \
-    _get_primary_key
+    _get_primary_key, SQLField, TypesTable, DecoratedClass, _get_fields, \
+    connect, _get_table_name
+from .constraints import ConstraintFailedError
 
 
 def _get_key(self) -> Key:
@@ -26,18 +27,23 @@ def _create_entry(self) -> None:
     :param self: Instance of the object.
     :return: None.
     """
-    with sql.connect(getattr(self, "db_path")) as con:
-        cur: sql.Cursor = con.cursor()
-        table_name: str = self.__class__.__name__.lower()
-        kv_pairs = [item for item in asdict(self).items()]
-        kv_pairs.sort(key=lambda item: item[0])  # Sort by the name of the fields.
-        cols = ', '.join(item[0] for item in kv_pairs)
-        values = ', '.join(_convert_sql_format(item[1]) for item in kv_pairs)
+    # get class
+    class_: DecoratedClass = type(self)
+    # ---
+    table_name: str = _get_table_name(self)
+    field_names = list(map(lambda f: f.name, _get_fields(class_)))
+    field_values = [getattr(self, f) for f in field_names]
+
+    cols = ', '.join(field_names)
+    values = ', '.join(map(_convert_sql_format, field_values))
+
+    with connect(class_) as conn:
+        cur: sql.Cursor = conn.cursor()
         try:
             cur.execute(f"INSERT INTO {table_name}({cols}) VALUES ({values});")
             # TODO: fix this
             self.__setattr__("__id__", cur.lastrowid)
-            con.commit()
+            conn.commit()
         except IntegrityError:
             raise ConstraintFailedError("A constraint has failed.")
 
@@ -48,8 +54,12 @@ def _update_entry(self) -> None:
     :param self: The object.
     :return: None.
     """
-    with sql.connect(getattr(self, "db_path")) as con:
-        cur: sql.Cursor = con.cursor()
+    # get class
+    class_: DecoratedClass = type(self)
+    # ---
+
+    with connect(class_) as conn:
+        cur: sql.Cursor = conn.cursor()
         table_name: str = self.__class__.__name__.lower()
         kv_pairs = [item for item in asdict(self).items()]
         kv_pairs.sort(key=lambda item: item[0])
@@ -57,15 +67,16 @@ def _update_entry(self) -> None:
         this = _get_key_condition(type(self), _get_key(self))
         query = f"UPDATE {table_name} SET {kv} WHERE {this};"
         cur.execute(query)
-        con.commit()
+        conn.commit()
 
 
 def remove_from(class_: type, key: Key):
     this = _get_key_condition(class_, key)
-    with sql.connect(getattr(class_, "db_path")) as con:
-        cur: sql.Cursor = con.cursor()
+    # connect
+    with connect(class_) as conn:
+        cur: sql.Cursor = conn.cursor()
         cur.execute(f"DELETE FROM {class_.__name__.lower()} WHERE {this}")
-        con.commit()
+        conn.commit()
 
 
 def _remove_entry(self) -> None:
@@ -77,26 +88,45 @@ def _remove_entry(self) -> None:
     remove_from(type(self), _get_key(self))
 
 
-def datalite(db_path: str, type_overload: Optional[Dict[Optional[type], str]] = None) -> Callable:
+def datalite(db: Union[str, Connection], type_overload: Optional[TypesTable] = None) -> Callable:
     """Bind a dataclass to a sqlite3 database. This adds new methods to the class, such as
     `create_entry()`, `remove_entry()` and `update_entry()`.
 
-    :param db_path: Path of the database to be binded.
+    :param db: Path of the database to be binded.
     :param type_overload: Type overload dictionary.
     :return: The new dataclass.
     """
-    def decorator(dataclass_: type, *args_i, **kwargs_i):
+    def decorator(dataclass_: type, *_, **__):
+        # update type table
         types_table = type_table.copy()
         if type_overload is not None:
             types_table.update(type_overload)
-        with sql.connect(db_path) as con:
-            cur: sql.Cursor = con.cursor()
+        # add primary key fields if not present
+        primary_fields: List[SQLField] = _get_primary_key(dataclass_, types_table)
+        default_key = len(primary_fields) == 1 and primary_fields[0].name == "__id__"
+        if default_key:
+            dataclass_ = make_dataclass(
+                dataclass_.__name__,
+                fields=[('__id__', int, None)],
+                bases=(dataclass_,)
+            )
+        # add the path of the database to the class
+        setattr(dataclass_, 'db', None if isinstance(db, Connection) else db)
+        # add a connection object to the class
+        setattr(dataclass_, 'connection', None if isinstance(db, str) else db)
+        # add the type table for migration.
+        setattr(dataclass_, 'types_table', types_table)
+        # mark class as decorated
+        setattr(dataclass_, '__datalite_decorated__', True)
+        # create table
+        with connect(dataclass_) as conn:
+            cur: sql.Cursor = conn.cursor()
             _create_table(dataclass_, cur, types_table)
-        primary_key = _get_primary_key(dataclass_, types_table)
-        setattr(dataclass_, 'db_path', db_path)  # We add the path of the database to class itself.
-        setattr(dataclass_, 'types_table', types_table)  # We add the type table for migration.
+        # add methods to the class
         dataclass_.create_entry = _create_entry
         dataclass_.remove_entry = _remove_entry
         dataclass_.update_entry = _update_entry
+        # ---
         return dataclass_
+    # ---
     return decorator
