@@ -45,7 +45,7 @@ test:
 	$(MAKE) test-distribution
 
 test-unit:
-	$(MAKE) test-one-unit TEST="test_*"
+	$(MAKE) test-one-unit TEST="tests_"
 
 test-distribution:
 	$(MAKE) -f ${ROOT_DIR}/tests/distribution/Makefile test-all
@@ -54,10 +54,10 @@ test-distribution-3.6:
 	$(MAKE) -f ${ROOT_DIR}/tests/distribution/Makefile test-no-clean PYTHON_VERSION=3.6;
 
 test-one-unit:
-	@echo "Running unit tests:"; echo ""
-	@PYTHONPATH="${ROOT_DIR}:$${PYTHONPATH}" \
+	echo "Running unit tests:"; echo ""
+	PYTHONPATH="${ROOT_DIR}:$${PYTHONPATH}" \
 		python3 \
 			-m unittest discover \
 			--verbose \
-			-s "${ROOT_DIR}/tests/unit" \
-			-p "${TEST}.py"
+			-s "${ROOT_DIR}/test" \
+			-p "${TEST}*.py"
