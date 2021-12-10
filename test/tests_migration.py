@@ -2,10 +2,10 @@ import unittest
 from dataclasses import dataclass
 from sqlite3 import Connection
 
-from datalite import datalite
-from datalite.constraints import Unique
-from datalite.fetch import fetch_all
-from datalite.migrations import basic_migrate, _drop_table
+from datalite3 import datalite
+from datalite3.constraints import Unique
+from datalite3.fetch import fetch_all
+from datalite3.migrations import basic_migrate, _drop_table
 
 # Show full diff in unittest
 unittest.util._MAX_LENGTH = 2000

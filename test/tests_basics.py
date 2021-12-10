@@ -3,7 +3,7 @@ from sqlite3 import Connection
 
 from dataclasses import dataclass, asdict
 
-from datalite import datalite
+from datalite3 import datalite
 # Show full diff in unittest
 from test.commons import getValFromDB
 

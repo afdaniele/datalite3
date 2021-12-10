@@ -4,11 +4,11 @@ from sqlite3 import Connection
 
 from dataclasses import dataclass
 
-from datalite import datalite
-from datalite.constraints import Primary
-from datalite.decorator import remove_all
-from datalite.fetch import fetch_all
-from datalite.mass_actions import create_many
+from datalite3 import datalite
+from datalite3.constraints import Primary
+from datalite3.decorator import remove_all
+from datalite3.fetch import fetch_all
+from datalite3.mass_actions import create_many
 
 # Show full diff in unittest
 unittest.util._MAX_LENGTH = 2000

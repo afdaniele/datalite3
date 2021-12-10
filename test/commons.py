@@ -1,5 +1,5 @@
 # noinspection PyProtectedMember
-from datalite.commons import _get_fields, DecoratedClass, connect, Key, _get_key_condition
+from datalite3.commons import _get_fields, DecoratedClass, connect, Key, _get_key_condition
 
 
 def getValFromDB(class_: DecoratedClass, key: Key):

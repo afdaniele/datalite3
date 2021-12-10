@@ -3,8 +3,8 @@ from dataclasses import dataclass, asdict
 from math import floor
 from sqlite3 import Connection
 
-from datalite import datalite
-from datalite.fetch import fetch_all, fetch_if, fetch_where
+from datalite3 import datalite
+from datalite3.fetch import fetch_all, fetch_if, fetch_where
 
 # Show full diff in unittest
 unittest.util._MAX_LENGTH = 2000

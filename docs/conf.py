@@ -18,12 +18,12 @@ sys.path.insert(0, os.path.abspath('../.'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'Datalite'
-copyright = '2020, Ege Ozkan'
-author = 'Ege Ozkan'
+project = 'Datalite3'
+copyright = '2021, Andrea F. Daniele'
+author = 'Andrea F. Daniele'
 
 # The full version, including alpha/beta/rc tags
-release = 'v0.7.1'
+release = 'v0.1.0'
 
 
 # -- General configuration ---------------------------------------------------

@@ -3,8 +3,8 @@ from sqlite3 import Connection
 
 from dataclasses import dataclass
 
-from datalite import datalite
-from datalite.constraints import ConstraintFailedError, Primary, Unique
+from datalite3 import datalite
+from datalite3.constraints import ConstraintFailedError, Primary, Unique
 
 # Show full diff in unittest
 

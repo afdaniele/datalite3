@@ -2,8 +2,8 @@ import unittest
 from dataclasses import dataclass, asdict
 from sqlite3 import Connection
 
-from datalite import datalite
-from datalite.fetch import fetch_from, fetch_equals, fetch_all, fetch_if, fetch_where, fetch_range
+from datalite3 import datalite
+from datalite3.fetch import fetch_from, fetch_equals, fetch_all, fetch_if, fetch_where, fetch_range
 
 # Show full diff in unittest
 unittest.util._MAX_LENGTH = 2000

@@ -4,14 +4,14 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="datalite", # Replace with your own username
-    version="0.7.1",
-    author="Ege Ozkan",
-    author_email="egeemirozkan24@gmail.com",
-    description="A small package that binds dataclasses to an sqlite database",
+    name="datalite3",
+    version="0.1.0",
+    author="Andrea F. Daniele",
+    author_email="afdaniele@ttic.edu",
+    description="A small package that binds dataclasses to an sqlite3 database",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/ambertide/datalite",
+    url="https://github.com/afdaniele/datalite3",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3.7",
