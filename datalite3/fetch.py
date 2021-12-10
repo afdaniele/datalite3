@@ -140,18 +140,6 @@ def fetch_where(class_: type, field: str, value: Any, page: int = 0,
     return fetch_if(class_, f"{field} = {_convert_sql_format(value)}", page, element_count)
 
 
-def fetch_range(class_: type, range_: range) -> tuple:
-    """
-    Fetch the records in a given range of object ids.
-
-    :param class_: Class of the records.
-    :param range_: Range of the object ids.
-    :return: A tuple of class_ type objects whose values
-        come from the class_' bound database.
-    """
-    return tuple(fetch_from(class_, obj_id) for obj_id in range_ if is_fetchable(class_, obj_id))
-
-
 def fetch_all(class_: type, page: int = 0, element_count: int = 10) -> tuple:
     """
     Fetchall the records in the bound database.

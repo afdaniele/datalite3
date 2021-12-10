@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="datalite3",
-    version="0.1.0",
+    version="1.0.0",
     author="Andrea F. Daniele",
     author_email="afdaniele@ttic.edu",
     description="A small package that binds dataclasses to an sqlite3 database",

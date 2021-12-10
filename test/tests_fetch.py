@@ -1,9 +1,10 @@
 import unittest
-from dataclasses import dataclass, asdict
 from sqlite3 import Connection
 
+from dataclasses import dataclass, asdict
+
 from datalite3 import datalite
-from datalite3.fetch import fetch_from, fetch_equals, fetch_all, fetch_if, fetch_where, fetch_range
+from datalite3.fetch import fetch_from, fetch_equals, fetch_all, fetch_if, fetch_where
 
 # Show full diff in unittest
 unittest.util._MAX_LENGTH = 2000
@@ -47,10 +48,6 @@ class DatabaseFetchCalls(unittest.TestCase):
     def testFetchWhere(self):
         t_objs = fetch_where(FetchClass, 'str_', 'b')
         self.assertEqual(tuple(self.objs[1:]), t_objs)
-
-    def testFetchRange(self):
-        t_objs = fetch_range(FetchClass, range(self.objs[0].__id__, self.objs[2].__id__))
-        self.assertEqual(tuple(self.objs[0:2]), t_objs)
 
 
 if __name__ == '__main__':

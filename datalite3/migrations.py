@@ -127,8 +127,7 @@ def basic_migrate(class_: DecoratedClass, column_transfer: dict = None) -> None:
     delete the fields that no longer exist,
     create new columns for new fields. If the
     column_flow parameter is given, migrate elements
-    from previous column to the new ones. It should be
-    noted that, the obj_ids do not persist.
+    from previous column to the new ones.
 
     :param class_: Datalite class to migrate.
     :param column_transfer: A dictionary showing which
