@@ -16,6 +16,27 @@ Key = Union[PrimitiveType, Tuple[PrimitiveType]]
 DecoratedClass = Type[dataclasses.dataclass]
 
 
+class DataLite:
+
+    def create_entry(self):
+        """
+        Creates an entry in the database corresponding to this object.
+        """
+        pass
+
+    def update_entry(self):
+        """
+        Updates the entry in the database corresponding to this object.
+        """
+        pass
+
+    def remove_entry(self):
+        """
+        Remove the entry from the database corresponding to this object.
+        """
+        pass
+
+
 class SQLType(Enum):
     NULL = "NULL"
     INTEGER = "INTEGER"

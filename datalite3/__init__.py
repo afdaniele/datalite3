@@ -1,5 +1,6 @@
 from .constraints import Primary, Unique
 from .decorator import datalite
+from .commons import DataLite
 
 __version__ = "1.0.0"
 
