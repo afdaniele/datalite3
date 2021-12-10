@@ -73,6 +73,16 @@ def _update_entry(self) -> None:
         conn.commit()
 
 
+def remove_all(class_: DecoratedClass):
+    _assert_is_decorated(class_)
+    table_name: str = _get_table_name(class_)
+    # connect
+    with connect(class_) as conn:
+        cur: sql.Cursor = conn.cursor()
+        cur.execute(f"DELETE FROM {table_name} WHERE 1")
+        conn.commit()
+
+
 def remove_from(class_: DecoratedClass, key: Key):
     _assert_is_decorated(class_)
     this = _get_key_condition(class_, key)

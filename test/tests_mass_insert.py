@@ -1,16 +1,19 @@
-import os
+import sqlite3
 import unittest
+from sqlite3 import Connection
+
 from dataclasses import dataclass
 
 from datalite import datalite
 from datalite.constraints import Primary
+from datalite.decorator import remove_all
 from datalite.fetch import fetch_all
-# Show full diff in unittest
 from datalite.mass_actions import create_many
 
+# Show full diff in unittest
 unittest.util._MAX_LENGTH = 2000
 
-db: str = "mass_commit.db"
+db: Connection = sqlite3.connect(":memory:")
 
 
 @datalite(db)
@@ -35,15 +38,8 @@ class DatabaseMassInsert(unittest.TestCase):
         _objs = fetch_all(MassCommit)
         self.assertEqual(_objs, start_tup + tuple(self.objs))
 
-    # def testMassCopy(self):
-    #     setattr(MassCommit, 'db_path', 'other.db')
-    #     start_tup = fetch_all(MassCommit)
-    #     copy_many(self.objs, 'other.db', False)
-    #     tup = fetch_all(MassCommit)
-    #     self.assertEqual(tup, start_tup + tuple(self.objs))
-
     def tearDown(self) -> None:
-        os.remove(db)
+        remove_all(MassCommit)
 
 
 if __name__ == '__main__':

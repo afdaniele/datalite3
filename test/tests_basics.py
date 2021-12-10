@@ -1,19 +1,13 @@
 import unittest
-from dataclasses import dataclass, asdict
-from sqlite3 import connect, Connection
+from sqlite3 import Connection
 
-from datalite.fetch import fetch_from, fetch_equals, fetch_all, fetch_if, fetch_where, fetch_range
+from dataclasses import dataclass, asdict
 
 from datalite import datalite
-
-from datalite.commons import _get_fields
-
-
 # Show full diff in unittest
 from test.commons import getValFromDB
 
-unittest.util._MAX_LENGTH=2000
-
+unittest.util._MAX_LENGTH = 2000
 
 db: Connection = Connection(":memory:")
 
