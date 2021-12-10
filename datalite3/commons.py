@@ -16,7 +16,7 @@ Key = Union[PrimitiveType, Tuple[PrimitiveType]]
 DecoratedClass = Type[dataclasses.dataclass]
 
 
-class DataLite:
+class DataLiteClass:
 
     def create_entry(self):
         """
