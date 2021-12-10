@@ -4,8 +4,8 @@
    contain the root `toctree` directive.
 
 
-Welcome to Datalite's documentation!
-====================================
+Welcome to datalite3's documentation!
+=====================================
 
 Datalite is a simple to use Python library that can bind a dataclass to an
 sqlite3 database.

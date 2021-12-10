@@ -1,8 +1,8 @@
 Schema Migrations
 ==================
 
-Datalite provides a module, ``datalite.migrations`` that handles schema migrations. When a class
-definition is modified, ``datalite.migrations.basic_migration`` can be called to automatically
+Datalite provides a module, ``datalite3.migrations`` that handles schema migrations. When a class
+definition is modified, ``datalite3.migrations.basic_migration`` can be called to automatically
 transfer records to a table fitting the new definitions.
 
 Let us say we have made changes to the fields of a dataclass called ``Student`` and now,
@@ -13,7 +13,7 @@ name change. We can achieve this easily by:
 
 .. code-block:: python
 
-    datalite.basic_migration(Student, {'studentt_id': 'student_id'})
+    datalite3.basic_migration(Student, {'studentt_id': 'student_id'})
 
 This will make all the changes, if we had not provided the second argument,
 the values would be lost.

@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath('../.'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'Datalite3'
+project = 'datalite3'
 copyright = '2021, Andrea F. Daniele'
 author = 'Andrea F. Daniele'
 
