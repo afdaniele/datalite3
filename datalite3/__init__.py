@@ -15,5 +15,7 @@ __all__ = [
     'mass_actions',
     # constraints
     'Primary',
-    'Unique'
+    'Unique',
+    # classes
+    'DataLiteClass'
 ]

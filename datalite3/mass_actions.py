@@ -47,23 +47,25 @@ def _mass_insert(objects: Union[List[T], Tuple[T]]) -> None:
     """
     _check_homogeneity(objects)
     class_ = type(objects[0])
+    sql_parts = []
     sql_values = []
     table_name = _get_table_name(class_)
     field_names = list(map(lambda f: f.name, _get_fields(class_)))
 
     for i, obj in enumerate(objects):
         values: dict = asdict(obj)
-        values: str = ', '.join(_convert_sql_format(values[k]) for k in field_names)
-        sql_values.append(f"({values})")
+        placeholders: str = ', '.join(["?"] * len(values))
+        sql_parts.append(f"({placeholders})")
+        sql_values.extend(values[k] for k in field_names)
 
     columns: str = ', '.join(field_names)
-    values_list: str = ', '.join(sql_values)
+    values_list: str = ', '.join(sql_parts)
     sql_insert = f"INSERT INTO {table_name}({columns}) VALUES {values_list};"
 
     with connect(class_) as con:
         cur: sql.Cursor = con.cursor()
         try:
-            cur.executescript(sql_insert)
+            cur.execute(sql_insert, sql_values)
         except sql.IntegrityError:
             raise ConstraintFailedError
         con.commit()

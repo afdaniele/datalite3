@@ -38,12 +38,13 @@ def _create_entry(self) -> None:
     field_values = [getattr(self, f) for f in field_names]
 
     cols = ', '.join(field_names)
-    values = ', '.join(map(_convert_sql_format, field_values))
+    placeholders = ', '.join(["?"] * len(field_values))
+    query = f"INSERT INTO {table_name}({cols}) VALUES ({placeholders});"
 
     with connect(class_) as conn:
         cur: sql.Cursor = conn.cursor()
         try:
-            cur.execute(f"INSERT INTO {table_name}({cols}) VALUES ({values});")
+            cur.execute(query, field_values)
             # TODO: fix this
             self.__setattr__("__id__", cur.lastrowid)
             conn.commit()

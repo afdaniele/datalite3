@@ -170,6 +170,7 @@ def _get_primary_key(class_: type,
 
 def _get_key_condition(class_: type, key: Key) -> str:
     key = _validate_key(class_, key)
+    # TODO: this is wrong, use placeholders and values instead
     key_value = [
         f"{k.name}={_convert_sql_format(v)}"
         for k, v in zip(_get_primary_key(class_, type_table), key)
