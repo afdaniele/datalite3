@@ -23,7 +23,7 @@ copyright = '2021, Andrea F. Daniele'
 author = 'Andrea F. Daniele'
 
 # The full version, including alpha/beta/rc tags
-release = 'vv1.0.0'
+release = 'vv1.0.1'
 
 
 # -- General configuration ---------------------------------------------------
