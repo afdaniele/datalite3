@@ -3,15 +3,15 @@ Defines the Datalite decorator that can be used to convert a dataclass to
 a class bound to a sqlite3 database.
 """
 import sqlite3 as sql
+from dataclasses import asdict, make_dataclass
 from sqlite3 import IntegrityError, Connection
 from typing import Optional, List, Union, Type, TypeVar
 
-from dataclasses import asdict, make_dataclass
-
 from .commons import _convert_sql_format, _get_key_condition, _create_table, type_table, Key, \
     _get_primary_key, SQLField, TypesTable, DecoratedClass, _get_fields, \
-    connect, _get_table_name, _assert_is_decorated
+    connect, _get_table_name, _assert_is_decorated, DataLiteClass, DataLiteClassParameters
 from .constraints import ConstraintFailedError
+from .fetch import fetch_from
 
 T = TypeVar("T")
 
@@ -46,6 +46,7 @@ def _create_entry(self) -> None:
         try:
             cur.execute(query, field_values)
             # TODO: fix this
+            # TODO: we should fetch all the fields we left blank and where DEFAULTed by SQL
             self.__setattr__("__id__", cur.lastrowid)
             conn.commit()
         except IntegrityError:
@@ -61,7 +62,6 @@ def _update_entry(self) -> None:
     # get class
     class_: DecoratedClass = type(self)
     # ---
-
     with connect(class_) as conn:
         cur: sql.Cursor = conn.cursor()
         table_name: str = _get_table_name(self)
@@ -72,6 +72,21 @@ def _update_entry(self) -> None:
         query = f"UPDATE {table_name} SET {kv} WHERE {this};"
         cur.execute(query)
         conn.commit()
+
+
+# TODO: document this in the RSTs
+def _fetch_entry(self) -> None:
+    """
+    Given an object, update the object with data from the bound database.
+    :param self: The object.
+    :return: None.
+    """
+    # get class
+    class_: DecoratedClass = type(self)
+    remote: class_ = fetch_from(class_, _get_key(self))
+    fields: List[SQLField] = _get_fields(class_)
+    for field in fields:
+        setattr(self, field.name, getattr(remote, field.name))
 
 
 def remove_all(class_: DecoratedClass):
@@ -106,6 +121,7 @@ def _remove_entry(self) -> None:
 
 def decorate(dataclass_: DecoratedClass, db: Union[str, Connection],
              table_name: Optional[str] = None, *,
+             auto_commit: bool = True,
              type_overload: Optional[TypesTable] = None) -> Type[T]:
     """Bind a dataclass to a sqlite3 database. This adds new methods to the class, such as
     `create_entry()`, `remove_entry()` and `update_entry()`.
@@ -113,9 +129,13 @@ def decorate(dataclass_: DecoratedClass, db: Union[str, Connection],
     :param dataclass_: Dataclass to decorate.
     :param db: Path of the database to be binded.
     :param table_name: Optional name for the table. The name of the class will be used by default.
+    :param auto_commit: Enable auto-commit.
     :param type_overload: Type overload dictionary.
     :return: The new dataclass.
     """
+    params: DataLiteClassParameters = DataLiteClassParameters(
+        auto_commit=auto_commit
+    )
     # update type table
     types_table = type_table.copy()
     if type_overload is not None:
@@ -128,7 +148,14 @@ def decorate(dataclass_: DecoratedClass, db: Union[str, Connection],
         dataclass_ = make_dataclass(
             dataclass_.__name__,
             fields=[('__id__', int, None)],
-            bases=(dataclass_,)
+            bases=(DataLiteClass, dataclass_,)
+        )
+    else:
+        # noinspection PyTypeChecker
+        dataclass_ = make_dataclass(
+            dataclass_.__name__,
+            fields=[],
+            bases=(DataLiteClass, dataclass_,)
         )
     # make table name
     table_name_: str = table_name or dataclass_.__name__.lower()
@@ -140,6 +167,8 @@ def decorate(dataclass_: DecoratedClass, db: Union[str, Connection],
     setattr(dataclass_, 'types_table', types_table)
     # add table name
     setattr(dataclass_, 'table_name', table_name_)
+    # add table name
+    setattr(dataclass_, '__datalite_params__', params)
     # mark class as decorated
     setattr(dataclass_, '__datalite_decorated__', True)
     # create table
@@ -150,23 +179,27 @@ def decorate(dataclass_: DecoratedClass, db: Union[str, Connection],
     dataclass_.create_entry = _create_entry
     dataclass_.remove_entry = _remove_entry
     dataclass_.update_entry = _update_entry
+    dataclass_.fetch_entry = _fetch_entry
     # ---
     return dataclass_
 
 
 # NOTE: The return type is not correct but it keeps type hinting in PyCharm alive
 def datalite(db: Union[str, Connection], table_name: Optional[str] = None, *,
+             auto_commit: bool = False,
              type_overload: Optional[TypesTable] = None) -> Type[T]:
     """Bind a dataclass to a sqlite3 database. This adds new methods to the class, such as
     `create_entry()`, `remove_entry()` and `update_entry()`.
 
     :param db: Path of the database to be binded.
     :param table_name: Optional name for the table. The name of the class will be used by default.
+    :param auto_commit: Enable auto-commit.
     :param type_overload: Type overload dictionary.
     :return: The new dataclass.
     """
 
     def _wrap(dataclass_: Type[T]) -> Type[T]:
-        return decorate(dataclass_, db, table_name, type_overload=type_overload)
+        return decorate(dataclass_, db, table_name, auto_commit=auto_commit,
+                        type_overload=type_overload)
 
     return _wrap

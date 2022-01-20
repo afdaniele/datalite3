@@ -15,26 +15,69 @@ PrimitiveType = Union[type(None), int, float, str, bytes]
 Key = Union[PrimitiveType, Tuple[PrimitiveType]]
 DecoratedClass = Type[dataclasses.dataclass]
 
+MISSING = object()
 
+
+@dataclasses.dataclass
+class DataLiteClassParameters:
+    auto_commit: bool
+
+
+@dataclasses.dataclass
 class DataLiteClass:
+    __commit__: dataclasses.InitVar[bool] = MISSING
+
+    def __post_init__(self, __commit__: bool):
+        if __commit__ is False:
+            return
+        class_ = type(self)
+        params = _get_parameters(class_)
+        if params.auto_commit:
+            self.create_entry()
+            
+    def __setattr__(self, key, value) -> bool:
+        # noinspection PyNoneFunctionAssignment
+        propagate = super(DataLiteClass, self).__setattr__(key, value)
+        if propagate is False:
+            return False
+        # auto-commit
+        class_ = type(self)
+        params = _get_parameters(class_)
+        if params.auto_commit:
+            self.update_entry()
+        return True
+
+    # TODO: this is also called when the Python VM terminates, so it always removes from DB
+    # def __del__(self):
+    #     # auto-commit
+    #     class_ = type(self)
+    #     params = _get_parameters(class_)
+    #     if params.auto_commit:
+    #         self.remove_entry()
 
     def create_entry(self):
         """
         Creates an entry in the database corresponding to this object.
         """
-        pass
+        raise NotImplementedError()
 
     def update_entry(self):
         """
         Updates the entry in the database corresponding to this object.
         """
-        pass
+        raise NotImplementedError()
+
+    def fetch_entry(self):
+        """
+        Fetched the entry from the database and updates this object.
+        """
+        raise NotImplementedError()
 
     def remove_entry(self):
         """
         Remove the entry from the database corresponding to this object.
         """
-        pass
+        raise NotImplementedError()
 
 
 class SQLType(Enum):
@@ -196,6 +239,11 @@ def _get_fields(class_: type,
         SQLField.from_dataclass_field(f, type_overload) for f in fields
     ]
     return fields
+
+
+def _get_parameters(class_: DecoratedClass) -> DataLiteClassParameters:
+    _assert_is_decorated(class_)
+    return getattr(class_, "__datalite_params__")
 
 
 @contextmanager

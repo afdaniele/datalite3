@@ -62,7 +62,7 @@ def fetch_equals(class_: type, field: str, value: Any, ) -> Any:
         cur.execute(f"SELECT * FROM {table_name} WHERE {field} = {_convert_sql_format(value)};")
         field_values = list(cur.fetchone())
     kwargs = dict(zip(field_names, field_values))
-    obj = class_(**kwargs)
+    obj = class_(**kwargs, __commit__=False)
     return obj
 
 
@@ -92,12 +92,8 @@ def _convert_record_to_object(class_: type, record: Tuple[Any]) -> Any:
     """
     _assert_is_decorated(class_)
     field_names = list(map(lambda f: f.name, _get_fields(class_)))
-    field_types = {f.name: f.py_type for f in _get_fields(class_)}
     kwargs = dict(zip(field_names, record))
-    for key in kwargs:
-        if field_types[key] == bytes:
-            kwargs[key] = bytes(kwargs[key], encoding='utf-8')
-    obj = class_(**kwargs)
+    obj = class_(**kwargs, __commit__=False)
     return obj
 
 

@@ -24,6 +24,8 @@ class FetchClass:
 
 class DatabaseFetchCalls(unittest.TestCase):
 
+    # TODO: test object.fetch_entry()
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.objs = [FetchClass(1, 'a'), FetchClass(2, 'b'), FetchClass(3, 'b')]
