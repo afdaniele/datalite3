@@ -28,6 +28,7 @@ class DataLiteClass:
     __commit__: dataclasses.InitVar[bool] = MISSING
 
     def __post_init__(self, __commit__: bool):
+        setattr(self, "__datalite_created__", None)
         if __commit__ is False:
             return
         class_ = type(self)
@@ -35,17 +36,17 @@ class DataLiteClass:
         if params.auto_commit:
             self.create_entry()
             
-    def __setattr__(self, key, value) -> bool:
-        # noinspection PyNoneFunctionAssignment
-        propagate = super(DataLiteClass, self).__setattr__(key, value)
-        if propagate is False:
-            return False
+    def __setattr__(self, key, value):
+        super(DataLiteClass, self).__setattr__(key, value)
+        # if we are still constructing the object, don't commit
+        if not hasattr(self, "__datalite_created__"):
+            return
         # auto-commit
         class_ = type(self)
         params = _get_parameters(class_)
         if params.auto_commit:
             self.update_entry()
-        return True
+        return
 
     # TODO: this is also called when the Python VM terminates, so it always removes from DB
     # def __del__(self):
