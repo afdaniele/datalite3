@@ -8,3 +8,6 @@ build/*
 datalite.egg-info/*
 dist/*
 venv/*
+/datalite3.egg-info/
+/.coverage
+/coverage.xml
